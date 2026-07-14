@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Products — Pure MPA Shop</title>
+  <link rel="stylesheet" href="../styles/main.css">
+  <link rel="manifest" href="../public/manifest.webmanifest">
+  <link rel="icon" href="../public/icon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="../index.html">Home</a>
+      <a href="products.html" aria-current="page">Products</a>
+      <a href="cart.html">Cart (<output id="cart-count">0</output>)</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Products</h1>
+    <form id="filters">
+      <label>Category
+        <select name="category">
+          <option value="">All</option>
+        </select>
+      </label>
+      <label>Search
+        <input type="search" name="q">
+      </label>
+      <label>Sort
+        <select name="sort">
+          <option value="name-asc">Name A–Z</option>
+          <option value="name-desc">Name Z–A</option>
+          <option value="price-asc">Price low–high</option>
+          <option value="price-desc">Price high–low</option>
+        </select>
+      </label>
+    </form>
+    <product-list></product-list>
+    <noscript><p>The product database runs in the browser and needs JavaScript.</p></noscript>
+  </main>
+  <script type="module">
+    import '../components/product-list.js';
+    import { seedProducts, getProducts, getCategories, addToCart, getCartCount } from '../shared/db.js';
+    import { SEED_PRODUCTS } from '../shared/products-data.js';
+    import { parseFilters, buildQuery } from '../shared/url-params.js';
+    import { publish, subscribe, CART_UPDATED } from '../shared/broadcast.js';
+
+    const form = document.getElementById('filters');
+    const list = document.querySelector('product-list');
+    const cartCount = document.getElementById('cart-count');
+
+    await seedProducts(SEED_PRODUCTS);
+
+    for (const category of await getCategories()) {
+      form.elements.category.add(new Option(category, category));
+    }
+
+    function formToFilters() {
+      const filters = {};
+      for (const key of ['category', 'q', 'sort']) {
+        if (form.elements[key].value) filters[key] = form.elements[key].value;
+      }
+      return filters;
+    }
+
+    async function render(filters) {
+      list.products = await getProducts(filters);
+    }
+
+    async function renderCount() {
+      cartCount.value = await getCartCount();
+    }
+
+    function syncForm(filters) {
+      form.elements.category.value = filters.category || '';
+      form.elements.q.value = filters.q || '';
+      form.elements.sort.value = filters.sort || 'name-asc';
+    }
+
+    syncForm(parseFilters(location.search));
+    await render(parseFilters(location.search));
+    await renderCount();
+
+    // Discrete changes create history entries (ADR-009: back button restores
+    // the previous view state); typing in the search field only replaces.
+    form.addEventListener('input', async (event) => {
+      const filters = formToFilters();
+      const url = location.pathname + buildQuery(filters);
+      if (event.target === form.elements.q) {
+        history.replaceState(null, '', url);
+      } else {
+        history.pushState(null, '', url);
+      }
+      await render(filters);
+    });
+
+    window.addEventListener('popstate', async () => {
+      const filters = parseFilters(location.search);
+      syncForm(filters);
+      await render(filters);
+    });
+
+    list.addEventListener('add-to-cart', async (event) => {
+      await addToCart(event.detail.productId);
+      publish(CART_UPDATED);
+      await renderCount();
+    });
+
+    subscribe(async (message) => {
+      if (message.type === CART_UPDATED) await renderCount();
+    });
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js');
+  </script>
+</body>
+</html>

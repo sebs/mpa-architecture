@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pure MPA Shop</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="manifest" href="public/manifest.webmanifest">
+  <link rel="icon" href="public/icon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html" aria-current="page">Home</a>
+      <a href="pages/products.html">Products</a>
+      <a href="pages/cart.html">Cart</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Pure MPA Shop</h1>
+    <p>A website with a database. No frameworks, no build step.</p>
+    <p>This shop is the reference implementation for the
+      <a href="https://github.com/sebs/mpa-architecture">Pure MPA architecture</a>:
+      HTML pages that link to each other, IndexedDB for data, vanilla JS where
+      needed, a Service Worker for offline, Broadcast Channel to sync tabs.</p>
+    <p>Start at the <a href="pages/products.html">products page</a>.</p>
+  </main>
+  <script type="module">
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+  </script>
+</body>
+</html>

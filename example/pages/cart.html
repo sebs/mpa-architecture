@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cart — Pure MPA Shop</title>
+  <link rel="stylesheet" href="../styles/main.css">
+  <link rel="manifest" href="../public/manifest.webmanifest">
+  <link rel="icon" href="../public/icon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="../index.html">Home</a>
+      <a href="products.html">Products</a>
+      <a href="cart.html" aria-current="page">Cart</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Cart</h1>
+    <cart-view></cart-view>
+    <section>
+      <h2>Your data</h2>
+      <p>Cart data lives in this browser's IndexedDB. Browser storage can be
+        cleared; export a backup file to keep your data, or import one to
+        restore it — also across devices.</p>
+      <p>
+        <button type="button" id="export">Export cart</button>
+        <label>Import backup
+          <input type="file" id="import" accept="application/json">
+        </label>
+      </p>
+      <p id="status" role="status"></p>
+    </section>
+    <noscript><p>The cart runs in the browser and needs JavaScript.</p></noscript>
+  </main>
+  <script type="module">
+    import '../components/cart-view.js';
+    import { seedProducts, getCartItems, setCartQuantity, removeFromCart } from '../shared/db.js';
+    import { SEED_PRODUCTS } from '../shared/products-data.js';
+    import { exportData, serializeExport, importData } from '../shared/export-import.js';
+    import { publish, subscribe, CART_UPDATED } from '../shared/broadcast.js';
+
+    const view = document.querySelector('cart-view');
+    const status = document.getElementById('status');
+
+    await seedProducts(SEED_PRODUCTS);
+
+    async function render() {
+      view.items = await getCartItems();
+    }
+    await render();
+
+    view.addEventListener('quantity-change', async (event) => {
+      await setCartQuantity(event.detail.productId, event.detail.quantity);
+      publish(CART_UPDATED);
+      await render();
+    });
+
+    view.addEventListener('remove-item', async (event) => {
+      await removeFromCart(event.detail.productId);
+      publish(CART_UPDATED);
+      await render();
+    });
+
+    document.getElementById('export').addEventListener('click', async () => {
+      const json = serializeExport(await exportData());
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'mpa-shop-export.json';
+      anchor.click();
+      URL.revokeObjectURL(url);
+      status.textContent = 'Exported cart data.';
+    });
+
+    document.getElementById('import').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const result = await importData(await file.text());
+        publish(CART_UPDATED);
+        await render();
+        status.textContent = result.skipped > 0
+          ? `Import complete. Skipped ${result.skipped} of ${result.data.cart.length} entries (unknown products).`
+          : 'Import complete.';
+      } catch (error) {
+        status.textContent = error.message;
+      }
+      event.target.value = '';
+    });
+
+    subscribe(async (message) => {
+      if (message.type === CART_UPDATED) await render();
+    });
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js');
+  </script>
+</body>
+</html>
