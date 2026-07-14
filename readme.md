@@ -18,14 +18,3 @@ HTML pages that link to each other. IndexedDB for data. Vanilla JS where needed.
 | [008](adr/008.md) | Service Worker caching strategies |
 | [009](adr/009.md) | URL parameters for navigation state |
 | [010](adr/010.md) | Node.js test runner + jsdom |
-
-## Structure
-
-```
-pages/           # HTML documents
-styles/          # Plain CSS
-shared/          # JS modules shared across pages
-page-scripts/    # Page-specific JS
-public/          # Service worker, manifest, icons
-tests/           # Tests (node --test)
-```
